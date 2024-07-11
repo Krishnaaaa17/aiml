@@ -1,26 +1,41 @@
+from math import ceil
 import numpy as np
 from scipy import linalg
 import matplotlib.pyplot as plt
 
 def lowess(x, y, f, iterations):
-    n, r = len(x), int(np.ceil(f * len(x)))
-    h = np.array([np.partition(np.abs(x - x[i]), r)[r] for i in range(n)])
-    w = (1 - np.clip(np.abs((x[:, None] - x) / h[:, None]), 0, 1) ** 3) ** 3
-    yest, delta = np.zeros(n), np.ones(n)
-    for _ in range(iterations):
+    n = len(x)
+    r = int(ceil(f * n))
+    h = [np.sort(np.abs(x - x[i]))[r] for i in range(n)]
+    w = np.clip(np.abs((x[:, None] - x[None, :]) / h), 0.0, 1.0)
+    w = (1 - w ** 3) ** 3
+    yest = np.zeros(n)
+    delta = np.ones(n)
+    for iteration in range(iterations):
         for i in range(n):
             weights = delta * w[:, i]
-            W = np.diag(weights)  # Create a diagonal matrix of weights
-            A = np.array([np.ones(n), x]).T
-            b = y
-            theta = linalg.solve(A.T @ W @ A, A.T @ W @ b)
-            yest[i] = theta[0] + theta[1] * x[i]
-        delta = (1 - np.clip((y - yest) / (6 * np.median(np.abs(y - yest))), -1, 1) ** 2) ** 2
+            b = np.array([np.sum(weights * y), np.sum(weights * y * x)])
+            A = np.array([[np.sum(weights), np.sum(weights * x)],
+                          [np.sum(weights * x), np.sum(weights * x * x)]])
+            beta = linalg.solve(A, b)
+            yest[i] = beta[0] + beta[1] * x[i]
+        residuals = y - yest
+        s = np.median(np.abs(residuals))
+        delta = np.clip(residuals / (6.0 * s), -1, 1)
+        delta = (1 - delta ** 2) ** 2
     return yest
 
-x = np.linspace(0, 2 * np.pi, 100)
-y = np.sin(x) + 0.3 * np.random.randn(100)
-plt.plot(x, y, "r.", label='Original Data')  # Plot original data points
-plt.plot(x, lowess(x, y, 0.25, 3), "b-", label='LOWESS Fit')  # Plot LOWESS smoothed curve
-plt.legend()
-plt.show()
+def main():
+    import math
+    n = 100
+    x = np.linspace(0, 2 * math.pi, n)
+    y = np.sin(x) + 0.3 * np.random.randn(n)
+    f = 0.25
+    iterations = 3
+    yest = lowess(x, y, f, iterations)
+    plt.plot(x, y, "r.")
+    plt.plot(x, yest, "b-")
+    plt.show()
+
+if __name__ == "__main__":
+    main()
