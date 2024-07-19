@@ -1,21 +1,19 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.linear_model import HuberRegressor
-from sklearn.pipeline import make_pipeline
+from sklearn.kernel_ridge import KernelRidge
 from sklearn.preprocessing import PolynomialFeatures
-
-def lowess_regression(x, y, f, degree=1):
-    model = make_pipeline(PolynomialFeatures(degree), HuberRegressor(epsilon=1.35))
-
+from sklearn.pipeline import make_pipeline
+def lowess(x, y, f, degree=1, gamma=None):
+    if gamma is None:
+        gamma = 1.0 / (2.0 * f**2)
+    model = make_pipeline(PolynomialFeatures(degree), KernelRidge(kernel='rbf', gamma=gamma))
     model.fit(x[:, np.newaxis], y)
     yest = model.predict(x[:, np.newaxis])
-
     return yest
-
 x = np.linspace(0, 2 * np.pi, 100)
 y = np.sin(x) + 0.3 * np.random.randn(100)
-
-plt.plot(x, y, "r.", label='Original Data')  # Plot original data points
-plt.plot(x, lowess_regression(x, y, 0.25, degree=1), "b-", label='Regression Fit')  # Plot regression curve
+smoothed_y = lowess(x, y, f=0.5, degree=1, gamma=None)
+plt.plot(x, y, "r.", label='Original Data')
+plt.plot(x, smoothed_y, "b-", label='LOWESS Fit') 
 plt.legend()
 plt.show()
